@@ -17,12 +17,14 @@ We developed a data-driven algorithm intended to address well known shortcomings
 
 # Directory Structure
 
-*item You can find iPSC-CMs and adult-CMs action potential dataset as .txt file format in data folder and the the jupyter notebook for data cleaning is shared in jupyter folder to prepare clean and organized data for training the network. 
+* You can find iPSC-CMs and adult-CMs action potential dataset as .txt file format in data folder and the the jupyter notebook for data cleaning is shared in jupyter folder to prepare clean and organized data for training the network. 
 
-*item Config file in config folder consists all employed hyperparameters for training the network.
+* Config file in config folder consists all employed hyperparameters for training the network.
 
-*item Checkpoints and final model are saved in results folder.
+* Checkpoints and final model are saved in results folder.
 
-*item You can find the network architecture in network_arch.py file.
+* You can find the network architecture in network_arch.py file.
 
-*item All required parameters for plots are saved in mat.npz file 
+* All required parameters for plots are saved in mat.npz file 
+
+* You can change mode to train and train_fram_scatch to Trure to retrain the network with different hyper parameters using main.py file. 
