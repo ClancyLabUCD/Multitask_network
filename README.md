@@ -21,10 +21,10 @@ We developed a data-driven algorithm intended to address well known shortcomings
 
 * Config file in config folder consists all employed hyperparameters for training the network.
 
-* Checkpoints and final model are saved in results folder.
+* Checkpoints and final model are saved as checkpoint.tar and model_LSTM.pth in results folder.
 
 * You can find the network architecture in network_arch.py file.
 
 * All required parameters for plots are saved in mat.npz file 
 
-* You can change mode to train and train_fram_scatch to Trure to retrain the network with different hyper parameters using main.py file. 
+* You can change mode to train and train_fram_scatch to Trure to retrain the network with different hyperparameters using main.py file. 
