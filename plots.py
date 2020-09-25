@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 data = np.load('mat.npz')
+data_exp = np.load('mat_implement.npz')
 x_train=data['x_train']
 x_train = x_train.reshape(x_train.shape[0], x_train.shape[1])
 x_test=data['x_test']
@@ -27,8 +28,8 @@ Input_max=data['Input_max']
 Input_mean = data['Input_mean']
 y_reg_mean = data['y_reg_mean']
 y_reg_max = data['y_reg_max']
-Data_exp = data['Data_exp']
-pred_plot_exp = data['pred_plot_exp']
+Data_exp = data_exp['Data_exp']
+pred_plot_exp = data_exp['pred_plot_exp']
 
 x_train_plot=(x_train*Input_max)+Input_mean
 x_test_plot =(x_test*Input_max)+Input_mean
@@ -147,13 +148,14 @@ for i in range(num_fig):
 
 #Fig7
 num_fig = 2
+a=40
 for i in range(num_fig):
     plt.figure(num=None, figsize=(16, 10), dpi=300)
     plt.rc('axes', linewidth=4)
     ax = plt.gca()
     ax.tick_params(axis='both', which='major', pad=15)
-    ax.tick_params(axis="y",direction="in", length=16, width=4)
-    ax.tick_params(axis="x",direction="in", length=16, width=4)
+    ax.tick_params(axis="y",direction="in", length=16, width=3)
+    ax.tick_params(axis="x",direction="in", length=16, width=3)
     ax.get_xaxis().tick_bottom()
     ax.get_yaxis().tick_left()
     ax.spines["top"].set_visible(False)

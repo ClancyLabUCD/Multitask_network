@@ -15,5 +15,5 @@ seq_dim : 701
 path_data : 'D:\Papers\LSTM encoder_decoder\code\data\'
 path_results : 'D:\Papers\LSTM encoder_decoder\code\results\'
 
-mode : 'test'
+mode : 'implement'
 train_from_scratch : False

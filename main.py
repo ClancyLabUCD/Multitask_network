@@ -87,6 +87,8 @@ def execute(args):
     Input=Input.iloc[:, :].values
     y_reg=y_reg.iloc[:, :].values
 
+
+
     #Onehot encoding
     enc = preprocessing.OneHotEncoder()
     enc.fit(y_class)
@@ -119,10 +121,14 @@ def execute(args):
     test_y1 = Variable(torch.from_numpy(y_test[:,0:701]).float())
     test_y1 = test_y1.unsqueeze_(-1)
 
+
+
     #Classification
     train_y2 = Variable(torch.from_numpy(np.reshape(y_train[:,701:702], (1,np.product(y_train[:,701:702].shape)))[0]).long())
     test_y2 = Variable(torch.from_numpy(np.reshape(y_test[:,701:702], (1,np.product(y_test[:,701:702].shape)))[0]).long())
 
+
+    #Data_Loader
     train_dataset = TensorDataset(train_x, train_y1,train_y2)
     test_dataset = TensorDataset(test_x, test_y1 ,test_y2)
     train_iterator = DataLoader(train_dataset, batch_size = args.batch_size,shuffle=True, num_workers=0)
@@ -301,6 +307,8 @@ def execute(args):
                 y_train = np.concatenate((y_train, y_train_temp),0)
 
 
+
+
         #MSE & R2_score
         mse_train = []
         R2_score_train = []
@@ -343,6 +351,37 @@ def execute(args):
         #Save variables
         np.savez('mat.npz', x_train=x_train, x_test=x_test, y_train = y_train, y_test = y_test, Input_max=Input_max , Input_mean = Input_mean , y_reg_mean = y_reg_mean, y_reg_max = y_reg_max , train_pred_translation = train_pred_translation,
         test_pred_translation = test_pred_translation,APD90_real_train = APD90_real_train, APD90_pred_train = APD90_pred_train, APD90_real_test = APD90_real_test, APD90_pred_test = APD90_pred_test )
+
+    elif args.mode == 'implement':
+        Data_exp = pd.read_csv(args.path_data+"experiments.csv", header=None)
+        Data_exp = Data_exp.iloc[:, :].values
+        # Normalizing experimental Data_exp
+        input_exp = Data_exp-Input_mean
+        input_exp = input_exp/Input_max
+        input_exp=Variable(torch.from_numpy(input_exp).float())
+        input_exp = input_exp.unsqueeze_(-1)
+        input_exp = input_exp.cuda()
+        dummy_y1 = np.zeros((input_exp.shape[0],input_exp.shape[1]))
+        dummy_y1 = Variable(torch.from_numpy(dummy_y1).float())
+        dummy_y1 = dummy_y1.unsqueeze_(-1)
+        dummy_y1 = dummy_y1.cuda()
+        dummy_y2 = np.zeros((input_exp.shape[0],1))
+        dummy_y2 = Variable(torch.from_numpy(dummy_y2).float())
+        dummy_y2 = dummy_y2.unsqueeze_(-1)
+        dummy_y2 = dummy_y2.cuda()
+        exp_dataset = TensorDataset(input_exp, dummy_y1,dummy_y2)
+        exp_iterator = DataLoader(exp_dataset, batch_size = input_exp.shape[0])
+        for exp_input, exp_target1, exp_target2 in exp_iterator:
+            pred1_exp , pred2_exp = model.implement(args, exp_input)
+            # pred1_exp = F.softmax(pred1_exp)
+            # pred1_exp = pred1_exp.data >= 0.5
+            exp_pred_classification = pred1_exp[:,1].long().cpu().data.numpy().astype(int)
+            exp_pred_translation = pred2_exp.cpu().data.numpy()
+            pred_plot_exp = exp_pred_translation.reshape((exp_pred_translation.shape[0], exp_pred_translation.shape[1] ))
+            pred_plot_exp=(pred_plot_exp*y_reg_max)+y_reg_mean
+
+            np.savez('mat_implement.npz', Data_exp = Data_exp ,  pred_plot_exp = pred_plot_exp)
+
 
 
 if __name__ == '__main__':

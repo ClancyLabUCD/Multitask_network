@@ -37,6 +37,10 @@ class Network():
 
         return out1 , out2, loss1.detach() , loss2.detach()
 
+    def implement(self, args, x_batch):
+        out1 , out2 = self.LSTMnet(x_batch)
+        return out1 , out2
+
 
 class LSTMClassifier(nn.Module):
 
