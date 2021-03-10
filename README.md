@@ -27,4 +27,4 @@ We developed a data-driven algorithm intended to address well known shortcomings
 
 * All required parameters for plots are saved in mat.npz file 
 
-* You can change mode to train and train_fram_scatch to Trure to retrain the network with different hyperparameters using main.py file. 
+* You can change mode to train and train_fram_scatch to True to retrain the network with different hyperparameters using main.py file. 
