@@ -17,17 +17,13 @@ from torch.utils.data import DataLoader, TensorDataset
 from torch.optim.lr_scheduler import _LRScheduler
 import random
 import math
-import time
 from sklearn import preprocessing
-from sklearn.metrics import mean_squared_error, r2_score
-import seaborn as sns
-from sklearn.metrics import accuracy_score
-from sklearn.metrics import confusion_matrix
 from sklearn import metrics
-from sklearn.metrics import classification_report
-from sklearn.metrics import roc_auc_score
-from sklearn.metrics import roc_curve, auc
+from sklearn.metrics import mean_squared_error, r2_score , accuracy_score, f1_score, precision_score, recall_score, confusion_matrix, classification_report, roc_auc_score, roc_curve, auc
+import seaborn as sns
+from matplotlib.lines import Line2D
 import scikitplot as skplt
+from scipy import signal
 import time
 
 
@@ -54,17 +50,16 @@ def main():
 def load_parameters(args):
     with open(args.config_path, 'r') as config_file:
         parameters = yaml.safe_load(config_file)
-        args.TH = parameters['TH']
         args.batch_size = parameters['batch_size']
         args.lr = parameters['lr']
         args.num_epochs = parameters['num_epochs']
         args.input_dim = parameters['input_dim']
-        args.layer_dim = parameters['layer_dim']
-        args.hidden_dim = parameters['hidden_dim']
-        args.output_dim1 = parameters['output_dim1']
-        args.output_dim2 = parameters['output_dim2']
-        args.output_dim3 = parameters['output_dim3']
-        args.output_dim4 = parameters['output_dim4']
+        args.lstm_hidden_dim = parameters['lstm_hidden_dim']
+        args.lstm_layer_dim = parameters['lstm_layer_dim']
+        args.layer1_class = parameters['layer1_class']
+        args.layer2_class = parameters['layer2_class']
+        args.layer3_class = parameters['layer3_class']
+        args.layer1_reg = parameters['layer1_reg']
         args.seq_dim = parameters['seq_dim']
         args.path_data = parameters['path_data']
         args.path_results = parameters['path_results']
@@ -79,11 +74,9 @@ def find_nearest(array, value):
 
 
 def execute(args):
-    Input = pd.read_csv(args.path_data+"input_without_noise_final.csv", header=None)
-    y_reg = pd.read_csv(args.path_data+"target_without_noise_final.csv", header=None)
-    y_class = pd.read_csv(args.path_data+"target_values.csv", header=None)
-    y_class =y_class.replace(y_class.where(y_class <= args.TH), 0)
-    y_class = y_class.replace(y_class.where(y_class > args.TH), 1)
+    Input = pd.read_csv(args.path_data+"input_without_noise.csv", header=None)
+    y_reg = pd.read_csv(args.path_data+"target_without_noise.csv", header=None)
+    y_class = pd.read_csv(args.path_data+"target_labels.csv", header=None)
     Input=Input.iloc[:, :].values
     y_reg=y_reg.iloc[:, :].values
 
@@ -110,29 +103,37 @@ def execute(args):
     target=np.append(y_reg_preprocess,y_class,axis=1)
 
     x_train, x_test, y_train, y_test = train_test_split(Input, target, test_size=0.2, random_state=42)
+    x_train, x_val, y_train, y_val = train_test_split(x_train, y_train, test_size=0.1, random_state=42)
 
     # Regression
     train_x = Variable(torch.from_numpy(x_train).float())
     train_x = train_x.unsqueeze_(-1)
+    val_x = Variable(torch.from_numpy(x_val).float())
+    val_x = val_x.unsqueeze_(-1)
     test_x = Variable(torch.from_numpy(x_test).float())
     test_x = test_x.unsqueeze_(-1)
     train_y1 = Variable(torch.from_numpy(y_train[:,0:701]).float())
     train_y1 = train_y1.unsqueeze_(-1)
+    val_y1 = Variable(torch.from_numpy(y_val[:,0:701]).float())
+    val_y1 = val_y1.unsqueeze_(-1)
     test_y1 = Variable(torch.from_numpy(y_test[:,0:701]).float())
     test_y1 = test_y1.unsqueeze_(-1)
 
-
-
     #Classification
     train_y2 = Variable(torch.from_numpy(np.reshape(y_train[:,701:702], (1,np.product(y_train[:,701:702].shape)))[0]).long())
+    val_y2 = Variable(torch.from_numpy(np.reshape(y_val[:,701:702], (1,np.product(y_val[:,701:702].shape)))[0]).long())
     test_y2 = Variable(torch.from_numpy(np.reshape(y_test[:,701:702], (1,np.product(y_test[:,701:702].shape)))[0]).long())
-
 
     #Data_Loader
     train_dataset = TensorDataset(train_x, train_y1,train_y2)
+    val_dataset = TensorDataset(val_x, val_y1,val_y2)
     test_dataset = TensorDataset(test_x, test_y1 ,test_y2)
-    train_iterator = DataLoader(train_dataset, batch_size = args.batch_size,shuffle=True, num_workers=0)
-    test_iterator = DataLoader(test_dataset, batch_size = args.batch_size, shuffle=False, num_workers=0)
+
+    loaders = {
+        'train' : DataLoader(train_dataset, batch_size = args.batch_size,shuffle=True, num_workers=0),
+        'validation' : DataLoader(val_dataset, batch_size = args.batch_size,shuffle=False, num_workers=0),
+        'test' : DataLoader(test_dataset, batch_size = args.batch_size, shuffle=False, num_workers=0)
+    }
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = network.Network(args)
@@ -153,28 +154,51 @@ def execute(args):
 
     if args.mode == 'train':
         print('Start model training')
-        loss1_ave = []
-        loss2_ave = []
 
         for epoch in range(args.num_epochs):
+
+            train_loss = 0.0
+            valid_loss = 0.0
+            train_correct = 0
+            train_total = 0
+            val_correct = 0
+            val_total = 0
+
             if epoch%100==0:
                 args.lr /= 4
 
-            for i, (x_batch1, y1_batch, y2_batch) in enumerate(train_iterator):
-                x_batch = x_batch1.cuda()
-                y1_batch = y1_batch.cuda()
-                y2_batch = y2_batch.cuda()
+            for batch_idx, (x_batch1, y1_batch, y2_batch) in enumerate(loaders['train']):
+                x_batch , y1_batch, y2_batch = x_batch1.cuda(), y1_batch.cuda(), y2_batch.cuda()
 
-                loss1 , loss2 = model.train_step(args, x_batch, y1_batch, y2_batch  )
-                loss1_ave.append(loss1.cpu().numpy())
-                loss2_ave.append(loss2.cpu().numpy())
+                short_term , out1 , out2, loss1 , loss2 = model.train_step(args, x_batch, y1_batch, y2_batch  )
 
-                if epoch % 2 == 0:
+                train_loss = train_loss + ((1 / (batch_idx + 1)) * (loss2.data- train_loss))
+                pred = out1.data.max(1, keepdim=True)[1]
+                # compare predictions to true label
+                train_correct += np.sum(np.squeeze(pred.eq(y2_batch.data.view_as(pred))).cpu().numpy())
+                train_total += x_batch.size(0)
+                train_accuracy = 100* train_correct / train_total
 
-                    print('Epoch[{}/{}], steps{}, loss1: {:.8f}, loss2: {:.8f}'
-                    .format(epoch + 1 , args.num_epochs, i + 1 , np.mean(loss1_ave) , np.mean(loss2_ave)))
-                    loss1_ave = []
-                    loss2_ave = []
+
+            for batch_idx, (x_batch1, y1_batch, y2_batch) in enumerate(loaders['validation']):
+                x_batch , y1_batch, y2_batch = x_batch1.cuda(), y1_batch.cuda(), y2_batch.cuda()
+
+                short_term , out1 , out2, loss1 , loss2 = model.val_step(args, x_batch, y1_batch, y2_batch  )
+                valid_loss = valid_loss + ((1 / (batch_idx + 1)) * (loss2.data- valid_loss))
+                pred = out1.data.max(1, keepdim=True)[1]
+                # compare predictions to true label
+                val_correct += np.sum(np.squeeze(pred.eq(y2_batch.data.view_as(pred))).cpu().numpy())
+                val_total += x_batch.size(0)
+                val_accuracy = 100* val_correct / val_total
+
+                if epoch % 1 == 0:
+                    print('Epoch[{}/{}] \tTraining Loss: {:.3f} \tTrain acc: {:.3f} \tValidation Loss: {:.3f} \tValidation acc: {:.3f}'.format(
+                    epoch  , args.num_epochs,
+                    train_loss,
+                    train_accuracy,
+                    valid_loss,
+                    val_accuracy
+                    ))
 
                 if epoch % 20 == 0 :
                     checkpoint ={
@@ -200,11 +224,11 @@ def execute(args):
         test_real_translation = None
         x_test = None
         y_test = None
-        for test_input, test_target1, test_target2 in test_iterator:
+        for test_input, test_target1, test_target2 in loaders['test']:
             test_input = test_input.cuda()
             test_target1 = test_target1.cuda()
             test_target2 = test_target2.cuda()
-            pred1_test , pred2_test, loss1 , loss2 = model.test_step(args, test_input, test_target1, test_target2)
+            short_term , pred1_test , pred2_test, loss1 , loss2 = model.test_step(args, test_input, test_target1, test_target2)
             loss1_ave.append(loss1.cpu().numpy())
             loss2_ave.append(loss2.cpu().numpy())
             pred1_test = F.softmax(pred1_test)
@@ -277,11 +301,11 @@ def execute(args):
         train_real_translation = None
         x_train = None
         y_train = None
-        for train_input, train_target1, train_target2 in train_iterator:
+        for train_input, train_target1, train_target2 in loaders['train']:
             train_input = train_input.cuda()
             train_target1 = train_target1.cuda()
             train_target2 = train_target2.cuda()
-            pred1_train , pred2_train, loss1 , loss2 = model.test_step(args, train_input, train_target1, train_target2)
+            short_term, pred1_train , pred2_train, loss1 , loss2 = model.test_step(args, train_input, train_target1, train_target2)
             pred1_train = F.softmax(pred1_train)
             pred1_train = pred1_train.data >= 0.5
             train_pred_classification_temp = pred1_train[:,1].cpu().data.numpy().astype(int)
@@ -372,7 +396,7 @@ def execute(args):
         exp_dataset = TensorDataset(input_exp, dummy_y1,dummy_y2)
         exp_iterator = DataLoader(exp_dataset, batch_size = input_exp.shape[0])
         for exp_input, exp_target1, exp_target2 in exp_iterator:
-            pred1_exp , pred2_exp = model.implement(args, exp_input)
+            history, pred1_exp , pred2_exp = model.implement(args, exp_input)
             # pred1_exp = F.softmax(pred1_exp)
             # pred1_exp = pred1_exp.data >= 0.5
             exp_pred_classification = pred1_exp[:,1].long().cpu().data.numpy().astype(int)

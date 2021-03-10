@@ -1,19 +1,17 @@
-TH : 25  #Threshold for IKr block
-
-batch_size : 128
+batch_size : 64
 lr : 0.001
 num_epochs : 300
 
-input_dim : 1
-hidden_dim : 2
-layer_dim : 2
-output_dim1 : 40
-output_dim2 : 10
-output_dim3 : 2
-output_dim4 : 1000
+input_dim : 1    
+lstm_hidden_dim : 2
+lstm_layer_dim : 2
+layer1_class : 20
+layer2_class : 10
+layer3_class : 2
+layer1_reg : 800
 seq_dim : 701
-path_data : 'D:\Papers\LSTM encoder_decoder\code\data\'
-path_results : 'D:\Papers\LSTM encoder_decoder\code\results\'
+path_data : 'D:\Papers\Multitask_network\data\clean_data\'
+path_results : 'D:\Papers\Multitask_network\results\'
 
-mode : 'implement'
-train_from_scratch : False
+mode : 'train'
+train_from_scratch : True
