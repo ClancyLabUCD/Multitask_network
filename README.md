@@ -17,7 +17,7 @@ We developed a data-driven algorithm intended to address well known shortcomings
 
 # Directory Structure
 
-* You can find iPSC-CMs and adult-CMs action potential dataset as .txt file format in data folder and the the jupyter notebook for data cleaning is shared in jupyter folder to prepare clean and organized data for training the network. 
+* You can find iPSC-CMs and adult-CMs action potential dataset as .txt file format in data folder and the jupyter notebook for data cleaning is shared in jupyter folder to prepare clean and organized data for training the network. 
 
 * Config file in config folder consists all employed hyperparameters for training the network.
 
